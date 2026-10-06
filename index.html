@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>AI Knowledge Base</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', sans-serif; }
+        body { background: #1a1a2e; color: #eee; }
+
+        /* LOGIN / SIGN UP PAGE */
+        #login-page { display: flex; justify-content: center; align-items: center; height: 100vh; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+        #login-page.hidden { display: none; }
+        .login-box { background: white; padding: 40px; border-radius: 20px; width: 400px; max-width: 92vw; color: #333; }
+        .login-box h2 { text-align: center; margin-bottom: 20px; color: #667eea; }
+        .login-box input { width: 100%; padding: 12px; margin: 10px 0; border: 2px solid #ddd; border-radius: 10px; }
+        .login-box input.hidden { display: none; }
+        .login-box button { width: 100%; padding: 12px; background: #667eea; color: white; border: none; border-radius: 10px; cursor: pointer; margin-top: 10px; }
+        .login-box button:disabled { opacity: .6; cursor: not-allowed; }
+        .auth-error { color: #d93025; font-size: 14px; min-height: 18px; margin-top: 4px; }
+        .switch { text-align: center; margin-top: 14px; font-size: 14px; }
+        .switch a { color: #667eea; cursor: pointer; text-decoration: underline; }
+
+        /* DASHBOARD */
+        #dashboard { display: none; height: 100vh; }
+        #dashboard.show { display: flex; }
+
+        /* BAM SIDE */
+        .sidebar { width: 350px; background: #16213e; padding: 20px; display: flex; flex-direction: column; min-height: 0; }
+        .sidebar h3 { margin-bottom: 6px; color: #667eea; }
+        #whoami { font-size: 13px; color: #aab; margin-bottom: 14px; word-break: break-all; }
+        .pdf-list { flex: 1; overflow-y: auto; min-height: 0; }
+        .pdf-item { background: #0f3460; padding: 10px; border-radius: 8px; margin: 8px 0; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+        .pdf-item span { word-break: break-all; }
+        .pdf-item button { background: red; padding: 5px 10px; border: none; border-radius: 5px; color: white; cursor: pointer; flex-shrink: 0; }
+        .upload-area { margin-top: 15px; }
+        .upload-area button { margin-top: 8px; padding: 8px 14px; border: none; border-radius: 8px; background: #667eea; color: white; cursor: pointer; }
+        .upload-area button:disabled { opacity: .5; cursor: not-allowed; }
+        #uploadStatus { margin-top: 10px; font-size: 13px; color: #aab; }
+        #uploadStatus .err { color: #ff8080; margin-top: 4px; }
+        .logout { margin-top: 15px; background: transparent; border: 1px solid #667eea; color: #667eea; padding: 6px 12px; border-radius: 8px; cursor: pointer; }
+
+        /* DAN SIDE - CHAT */
+        .chat-area { flex: 1; display: flex; flex-direction: column; background: #0f3460; min-width: 0; min-height: 0; }
+        .chat-header { padding: 20px; border-bottom: 1px solid #333; }
+        .chat-box { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; min-height: 0; }
+        .msg { padding: 12px 18px; border-radius: 18px; margin: 8px 0; max-width: 70%; white-space: pre-wrap; word-wrap: break-word; }
+        .user { background: #667eea; align-self: flex-end; }
+        .bot { background: #333; align-self: flex-start; }
+        .src { font-size: 12px; color: #aab; margin-top: 8px; white-space: normal; }
+        .chat-input { display: flex; padding: 20px; border-top: 1px solid #333; }
+        .chat-input input { flex: 1; padding: 12px; border-radius: 20px; border: none; background: #16213e; color: white; }
+        .chat-input button { padding: 12px 25px; margin-left: 10px; border-radius: 20px; border: none; background: #667eea; color: white; cursor: pointer; }
+        .chat-input button:disabled { opacity: .5; cursor: not-allowed; }
+    </style>
+</head>
+<body>
+
+<!-- 1. LOGIN / SIGN UP -->
+<div id="login-page">
+    <div class="login-box">
+        <h2 id="authTitle">🔐 Login</h2>
+        <input type="text" id="username" class="hidden" placeholder="Username" autocomplete="username">
+        <input type="email" id="email" placeholder="Email" autocomplete="email">
+        <input type="password" id="password" placeholder="Password" autocomplete="current-password"
+               onkeydown="if(event.key==='Enter') submitAuth()">
+        <div class="auth-error" id="authError"></div>
+        <button id="authBtn" onclick="submitAuth()">Login</button>
+        <p class="switch" id="switchText"></p>
+    </div>
+</div>
+
+<!-- 2. DASHBOARD -->
+<div id="dashboard">
+    <!-- BAM SIDE -->
+    <div class="sidebar">
+        <h3>📁 My PDFs</h3>
+        <div id="whoami"></div>
+        <div class="pdf-list" id="pdfList"></div>
+        <div class="upload-area">
+            <input type="file" id="fileInput" accept=".pdf" multiple>
+            <button id="uploadBtn" onclick="uploadFiles()">+ Upload New PDF</button>
+            <div id="uploadStatus"></div>
+        </div>
+        <button class="logout" onclick="logout()">Logout</button>
+    </div>
+
+    <!-- DAN SIDE -->
+    <div class="chat-area">
+        <div class="chat-header">
+            <h2>💬 Chat with your PDFs</h2>
+        </div>
+        <div class="chat-box" id="chatBox"></div>
+        <div class="chat-input">
+            <input type="text" id="question" placeholder="Ask anything about your PDFs..."
+                   onkeydown="if(event.key==='Enter') ask()">
+            <button id="sendBtn" onclick="ask()">Send</button>
+        </div>
+    </div>
+</div>
+
+<script>
+const API_URL = "http://127.0.0.1:8000";
+const $ = id => document.getElementById(id);
+const enc = encodeURIComponent;
+
+let token = localStorage.getItem("rag_token") || "";
+let mode = "login"; // "login" ba "signup"
+let asking = false;
+
+// ========== API HELPER (token auto jay) ==========
+async function api(path, opts = {}) {
+    const headers = { ...(opts.headers || {}) };
+    if (token) headers['Authorization'] = 'Bearer ' + token;
+    const res = await fetch(API_URL + path, { ...opts, headers });
+    if (res.status === 401 && token) {
+        logout();
+        throw new Error("Session shesh, abar login korun");
+    }
+    return res;
+}
+
+async function errMsg(res) {
+    const e = await res.json().catch(() => ({}));
+    if (typeof e.detail === 'string') return e.detail;
+    if (Array.isArray(e.detail)) return e.detail.map(x => x.msg).join(', ');
+    return `HTTP ${res.status}`;
+}
+
+// ========== LOGIN / SIGN UP ==========
+function renderMode() {
+    const signup = mode === "signup";
+    $('authTitle').textContent = signup ? "📝 Sign Up" : "🔐 Login";
+    $('authBtn').textContent = signup ? "Create Account" : "Login";
+    $('username').classList.toggle('hidden', !signup);
+    $('password').autocomplete = signup ? "new-password" : "current-password";
+    $('password').placeholder = signup ? "Password (kom pokkhe 8 character)" : "Password";
+    $('authError').textContent = "";
+    $('switchText').innerHTML = signup
+        ? 'Account ache? <a onclick="toggleMode()">Login</a>'
+        : 'Notun user? <a onclick="toggleMode()">Sign up</a>';
+}
+
+function toggleMode() {
+    mode = mode === "login" ? "signup" : "login";
+    renderMode();
+}
+
+async function submitAuth() {
+    const email = $('email').value.trim().toLowerCase();
+    const password = $('password').value;
+    const username = $('username').value.trim();
+    const err = $('authError');
+    err.textContent = "";
+
+    if (!email || !password) { err.textContent = "Email ar password din"; return; }
+    if (mode === "signup" && !username) { err.textContent = "Username din"; return; }
+
+    const body = mode === "signup" ? { email, username, password } : { email, password };
+    const btn = $('authBtn');
+    btn.disabled = true;
+    try {
+        const res = await fetch(`${API_URL}/auth/${mode === "signup" ? "register" : "login"}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+        });
+        if (!res.ok) { err.textContent = await errMsg(res); return; }
+        const data = await res.json();
+        token = data.token;
+        localStorage.setItem("rag_token", token);
+        $('password').value = "";
+        showDashboard(data.user);
+    } catch (e) {
+        err.textContent = "Server e connect hocche na (uvicorn chalu ache?)";
+    } finally {
+        btn.disabled = false;
+    }
+}
+
+function logout() {
+    localStorage.removeItem("rag_token");
+    token = "";
+    location.reload();
+}
+
+function showDashboard(user) {
+    $('whoami').textContent = `👤 ${user.username} (${user.email})`;
+    $('login-page').classList.add('hidden');
+    $('dashboard').classList.add('show');
+    loadPdfs();
+}
+
+// ========== PDF LIST ==========
+async function loadPdfs() {
+    const list = $('pdfList');
+    try {
+        const res = await api('/list_pdfs');
+        if (!res.ok) throw new Error(await errMsg(res));
+        const data = await res.json();
+        list.replaceChildren();
+        if (data.files.length === 0) {
+            list.textContent = "Kono PDF nai";
+            return;
+        }
+        data.files.forEach(f => {
+            const item = document.createElement('div');
+            item.className = 'pdf-item';
+            const label = document.createElement('span');
+            label.textContent = '📄 ' + f;
+            const btn = document.createElement('button');
+            btn.textContent = 'X';
+            btn.title = 'Delete';
+            btn.onclick = () => deletePdf(f);
+            item.append(label, btn);
+            list.appendChild(item);
+        });
+    } catch (e) {
+        list.textContent = "Server e connect hocche na (uvicorn chalu ache?)";
+    }
+}
+
+// ========== UPLOAD ==========
+async function uploadFiles() {
+    const files = [...$('fileInput').files];
+    if (files.length === 0) return alert("File select koro");
+
+    const btn = $('uploadBtn');
+    const status = $('uploadStatus');
+    btn.disabled = true;
+    status.replaceChildren();
+    const progress = document.createElement('div');
+    status.appendChild(progress);
+
+    let ok = 0, fail = 0;
+    for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        progress.textContent = `(${i + 1}/${files.length}) ${file.name} process hocche... page close korben na`;
+
+        const formData = new FormData();
+        formData.append('file', file);
+
+        try {
+            const res = await api('/upload', { method: 'POST', body: formData });
+            if (!res.ok) throw new Error(await errMsg(res));
+            ok++;
+            await loadPdfs();
+        } catch (e) {
+            fail++;
+            const line = document.createElement('div');
+            line.className = 'err';
+            line.textContent = `❌ ${file.name}: ${e.message}`;
+            status.appendChild(line);
+        }
+    }
+
+    progress.textContent = `Shesh: ${ok} ta save hoise` + (fail ? `, ${fail} ta fail` : '');
+    $('fileInput').value = "";
+    btn.disabled = false;
+    loadPdfs();
+}
+
+async function deletePdf(filename) {
+    if (!confirm(`${filename} delete korben?`)) return;
+    try {
+        await api(`/delete_pdf/${enc(filename)}`, { method: 'DELETE' });
+    } catch (e) {
+        alert("Delete korte problem hoise");
+    }
+    loadPdfs();
+}
+
+// ========== CHAT ==========
+function addMsg(cls, text) {
+    const chatBox = $('chatBox');
+    const d = document.createElement('div');
+    d.className = 'msg ' + cls;
+    const t = document.createElement('span');
+    t.textContent = text;            // textContent: HTML inject hoy na
+    d.appendChild(t);
+    chatBox.appendChild(d);
+    chatBox.scrollTop = chatBox.scrollHeight;
+    return d;
+}
+
+function setBot(el, text, sources) {
+    el.replaceChildren();
+    const t = document.createElement('span');
+    t.textContent = `Bot: ${text}`;
+    el.appendChild(t);
+    if (sources && sources.length) {
+        const s = document.createElement('div');
+        s.className = 'src';
+        s.textContent = '📚 Source: ' + sources
+            .map(x => x.page ? `${x.file} (page ${x.page})` : x.file)
+            .join(', ');
+        el.appendChild(s);
+    }
+}
+
+async function ask() {
+    if (asking) return;
+    const input = $('question');
+    const question = input.value.trim();
+    if (!question) return;
+
+    asking = true;
+    $('sendBtn').disabled = true;
+    addMsg('user', question);
+    input.value = '';
+    const botMsg = addMsg('bot', 'Bot: Thinking...');
+
+    try {
+        const res = await api('/ask', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ question })
+        });
+        if (!res.ok) throw new Error(await errMsg(res));
+        const data = await res.json();
+        setBot(botMsg, String(data.answer), data.sources);
+    } catch (e) {
+        setBot(botMsg, `Error - ${e.message}`);
+    } finally {
+        asking = false;
+        $('sendBtn').disabled = false;
+        $('chatBox').scrollTop = $('chatBox').scrollHeight;
+        input.focus();
+    }
+}
+
+// ========== START ==========
+renderMode();
+(async function init() {
+    if (!token) return;
+    try {
+        const res = await api('/me');
+        if (!res.ok) throw new Error();
+        showDashboard(await res.json());
+    } catch (e) {
+        $('authError').textContent = "Server e connect hocche na (uvicorn chalu ache?)";
+    }
+})();
+</script>
+</body>
+</html>
